@@ -1522,22 +1522,10 @@ class _StudentAttendanceDetailPageState
     extends State<_StudentAttendanceDetailPage> {
   bool _loading = true;
   String? _error;
-  DateTime? _semStart;
-  DateTime? _semEnd;
   DateTime? _weekStart;
   DateTime? _weekEnd;
   int _weekNumber = 1;
-  final List<String> _days = const [
-    'Monday',
-    'Tuesday',
-    'Wednesday',
-    'Thursday',
-    'Friday',
-    'Saturday',
-  ];
   late final DatabaseService _db;
-  Map<int, _DayAttendance> _dayStats = {};
-  double _weeklyPercent = 0;
   List<_WeeklyAttendance> _weeklyStats = [];
 
   @override
@@ -1590,8 +1578,6 @@ class _StudentAttendanceDetailPageState
         setState(() {
           _error = 'Semester ended. Attendance records cleared.';
           _loading = false;
-          _semStart = window.startDate;
-          _semEnd = window.endDate;
         });
         return;
       }
@@ -1609,14 +1595,6 @@ class _StudentAttendanceDetailPageState
       final semStartWeek = _startOfWeek(window.startDate);
       _weekNumber = ((weekStart.difference(semStartWeek).inDays) / 7).floor() + 1;
 
-      final weekRecords = await _db.getAttendanceForClass(
-        className,
-        semester,
-        branch,
-        start: weekStart,
-        end: weekEnd,
-      );
-
       final semesterRecords = await _db.getAttendanceForClass(
         className,
         semester,
@@ -1624,23 +1602,6 @@ class _StudentAttendanceDetailPageState
         start: window.startDate,
         end: window.endDate,
       );
-
-      final stats = <int, _DayAttendance>{};
-      int total = 0;
-      int present = 0;
-
-      for (var record in weekRecords) {
-        if (!record.records.containsKey(user.pnr)) continue;
-        final dayIndex = record.date.weekday - 1; // 0-based
-        if (dayIndex < 0 || dayIndex > 5) continue;
-        stats.putIfAbsent(dayIndex, () => _DayAttendance());
-        stats[dayIndex]!.total++;
-        total++;
-        if (record.records[user.pnr] == 'Present') {
-          stats[dayIndex]!.present++;
-          present++;
-        }
-      }
 
       final weeklyStats = <_WeeklyAttendance>[];
       DateTime currentWeekStart = _startOfWeek(window.startDate);
@@ -1683,12 +1644,8 @@ class _StudentAttendanceDetailPageState
 
       if (!mounted) return;
       setState(() {
-        _semStart = window.startDate;
-        _semEnd = window.endDate;
         _weekStart = weekStart;
         _weekEnd = weekEnd;
-        _dayStats = stats;
-        _weeklyPercent = total == 0 ? 0 : (present / total) * 100;
         _weeklyStats = weeklyStats;
         _loading = false;
       });
@@ -1778,61 +1735,6 @@ class _StudentAttendanceDetailPageState
     );
   }
 
-  String get _weekTitle {
-    if (_weekStart == null || _weekEnd == null) return '';
-    final df = DateFormat('dd-MMM-yyyy');
-    return 'Week $_weekNumber (${df.format(_weekStart!)} to ${df.format(_weekEnd!)})';
-  }
-}
-
-class _DayAttendance {
-  int present = 0;
-  int total = 0;
-}
-
-class _AttendanceMetric extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color color;
-
-  const _AttendanceMetric({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.black87,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w700,
-              fontSize: 18,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _WeeklyAttendance {
